@@ -45,6 +45,12 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
 
+# ------------------------------------------------------------------------------
+# Quiz generation
+# ------------------------------------------------------------------------------
+
+WHISPER_MODEL = env("WHISPER_MODEL", default="base")
+
 # Application definition
 
 INSTALLED_APPS = [

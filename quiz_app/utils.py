@@ -1,8 +1,11 @@
 import re
+from functools import lru_cache
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import whisper
 import yt_dlp
+from django.conf import settings
 
 AUDIO_FILENAME = "audio"
 YOUTUBE_HOSTS = {
@@ -64,3 +67,15 @@ def extract_id_from_youtube_path(parsed):
         if parsed.path.startswith(prefix):
             return parsed.path[len(prefix) :].split("/")[0]
     return None
+
+
+def transcribe_audio(audio_path):
+    """Transcribe an audio file to plain text using a local Whisper model."""
+    result = get_whisper_model().transcribe(str(audio_path), fp16=False)
+    return result["text"].strip()
+
+
+@lru_cache(maxsize=1)
+def get_whisper_model():
+    """Load the configured Whisper model once and reuse it afterwards."""
+    return whisper.load_model(settings.WHISPER_MODEL)
