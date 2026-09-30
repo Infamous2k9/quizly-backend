@@ -6,7 +6,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from auth_app.utils import (
     blacklist_refresh_token,
+    create_access_token,
     delete_auth_cookies,
+    set_access_cookie,
     set_auth_cookies,
 )
 
@@ -61,4 +63,18 @@ class LogoutView(APIView):
             }
         )
         delete_auth_cookies(response)
+        return response
+
+
+class CookieTokenRefreshView(APIView):
+    """Issue a new access token using the refresh token cookie."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """Validate the refresh cookie and set a new access token cookie."""
+        access_token = create_access_token(request.COOKIES.get("refresh_token"))
+        response = Response({"detail": "Token refreshed"})
+        set_access_cookie(response, access_token)
         return response
