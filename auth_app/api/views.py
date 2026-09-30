@@ -4,7 +4,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from auth_app.utils import set_auth_cookies
+from auth_app.utils import (
+    blacklist_refresh_token,
+    delete_auth_cookies,
+    set_auth_cookies,
+)
 
 from .serializers import LoginSerializer, RegistrationSerializer, UserSerializer
 
@@ -41,4 +45,20 @@ class LoginView(APIView):
             {"detail": "Login successfully!", "user": UserSerializer(user).data}
         )
         set_auth_cookies(response, RefreshToken.for_user(user))
+        return response
+
+
+class LogoutView(APIView):
+    """Log out the user by blacklisting the refresh token and clearing cookies."""
+
+    def post(self, request):
+        """Invalidate the refresh token and delete all auth cookies."""
+        blacklist_refresh_token(request.COOKIES.get("refresh_token"))
+        response = Response(
+            {
+                "detail": "Log-Out successfully! All Tokens will be deleted. "
+                "Refresh token is now invalid."
+            }
+        )
+        delete_auth_cookies(response)
         return response

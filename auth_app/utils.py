@@ -1,5 +1,7 @@
 from django.conf import settings
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.settings import api_settings
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 def set_auth_cookies(response, refresh):
@@ -28,3 +30,20 @@ def set_token_cookie(response, name, value, lifetime):
         secure=not settings.DEBUG,
         samesite="Lax",
     )
+
+
+def blacklist_refresh_token(raw_token):
+    """Blacklist the given refresh token so it can no longer be used."""
+    if raw_token is None:
+        return
+    try:
+        RefreshToken(raw_token).blacklist()
+    except TokenError:
+        # Token is already invalid or expired, nothing left to revoke.
+        return
+
+
+def delete_auth_cookies(response):
+    """Remove the access and refresh token cookies from the client."""
+    response.delete_cookie("access_token", samesite="Lax")
+    response.delete_cookie("refresh_token", samesite="Lax")
