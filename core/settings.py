@@ -93,6 +93,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "core.wsgi.application"
 
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "auth_app.api.authentication.CookieJWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+}
+
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases

@@ -12,6 +12,7 @@ from .serializers import LoginSerializer, RegistrationSerializer, UserSerializer
 class RegistrationView(APIView):
     """Register a new user account."""
 
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -28,6 +29,7 @@ class RegistrationView(APIView):
 class LoginView(APIView):
     """Log in a user and set JWT tokens as HTTP-only cookies."""
 
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def post(self, request):
