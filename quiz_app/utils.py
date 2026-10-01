@@ -1,4 +1,5 @@
 import re
+import tempfile
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -6,9 +7,13 @@ from urllib.parse import parse_qs, urlparse
 import whisper
 import yt_dlp
 from django.conf import settings
+from django.db import transaction
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
+from rest_framework.exceptions import APIException, ValidationError
 
+from .models import Question, Quiz
 from .schemas import GeneratedQuiz
 
 AUDIO_FILENAME = "audio"
@@ -42,8 +47,11 @@ Transcript:
 
 def download_audio(video_url, target_dir):
     """Download the audio track of a YouTube video and return the mp3 path."""
-    with yt_dlp.YoutubeDL(build_download_options(target_dir)) as ydl:
-        ydl.download([video_url])
+    try:
+        with yt_dlp.YoutubeDL(build_download_options(target_dir)) as ydl:
+            ydl.download([video_url])
+    except yt_dlp.utils.DownloadError:
+        raise ValidationError({"url": "Video could not be downloaded."})
     return Path(target_dir) / f"{AUDIO_FILENAME}.mp3"
 
 
@@ -101,12 +109,26 @@ def get_whisper_model():
     return whisper.load_model(settings.WHISPER_MODEL)
 
 
-class QuizGenerationError(Exception):
+class QuizGenerationError(APIException):
     """Raised when the AI response cannot be turned into a valid quiz."""
+
+    status_code = 500
+    default_detail = "Quiz could not be generated."
+    default_code = "quiz_generation_failed"
 
 
 def generate_quiz_data(transcript):
-    """Ask Gemini to create a quiz from the transcript and return validated data."""
+    """Create a quiz from the transcript via Gemini and return validated data."""
+    try:
+        quiz_data = request_quiz_from_gemini(transcript)
+    except genai_errors.APIError:
+        raise QuizGenerationError("AI service is currently unavailable.")
+    validate_quiz_data(quiz_data)
+    return quiz_data
+
+
+def request_quiz_from_gemini(transcript):
+    """Send the quiz prompt to Gemini and return the parsed response."""
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
     response = client.models.generate_content(
         model=settings.GEMINI_MODEL,
@@ -116,7 +138,6 @@ def generate_quiz_data(transcript):
             response_schema=GeneratedQuiz,
         ),
     )
-    validate_quiz_data(response.parsed)
     return response.parsed
 
 
@@ -145,3 +166,32 @@ def validate_question(question):
         raise QuizGenerationError("A question does not have 4 options.")
     if question.answer not in question.question_options:
         raise QuizGenerationError("An answer is not one of its options.")
+
+
+def create_quiz_from_url(user, video_url):
+    """Run the full pipeline and store the generated quiz for the user."""
+    quiz_data = generate_quiz_from_video(video_url)
+    return save_quiz(user, video_url, quiz_data)
+
+
+def generate_quiz_from_video(video_url):
+    """Download, transcribe and turn a YouTube video into quiz data."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        audio_path = download_audio(video_url, temp_dir)
+        transcript = transcribe_audio(audio_path)
+    return generate_quiz_data(transcript)
+
+
+@transaction.atomic
+def save_quiz(user, video_url, quiz_data):
+    """Store the quiz and all its questions in a single transaction."""
+    quiz = Quiz.objects.create(
+        user=user,
+        title=quiz_data.title,
+        description=quiz_data.description,
+        video_url=video_url,
+    )
+    Question.objects.bulk_create(
+        [Question(quiz=quiz, **q.model_dump()) for q in quiz_data.questions]
+    )
+    return quiz
