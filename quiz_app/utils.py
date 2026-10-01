@@ -6,6 +6,10 @@ from urllib.parse import parse_qs, urlparse
 import whisper
 import yt_dlp
 from django.conf import settings
+from google import genai
+from google.genai import types
+
+from .schemas import GeneratedQuiz
 
 AUDIO_FILENAME = "audio"
 YOUTUBE_HOSTS = {
@@ -18,6 +22,22 @@ SHORT_LINK_HOST = "youtu.be"
 VIDEO_ID_PATH_PREFIXES = ("/shorts/", "/embed/", "/live/", "/v/")
 VIDEO_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{11}$")
 CANONICAL_VIDEO_URL = "https://www.youtube.com/watch?v={}"
+QUESTION_COUNT = 10
+OPTION_COUNT = 4
+QUIZ_PROMPT = """
+Create a quiz based on the following video transcript.
+
+Requirements:
+- Exactly {question_count} questions.
+- Each question has exactly {option_count} distinct answer options.
+- Exactly one option is correct, and "answer" must match it character for character.
+- The title is short and describes the topic (max. 80 characters).
+- The description summarizes the quiz in one or two sentences (max. 150 characters).
+- Write everything in the same language as the transcript.
+
+Transcript:
+{transcript}
+"""
 
 
 def download_audio(video_url, target_dir):
@@ -79,3 +99,49 @@ def transcribe_audio(audio_path):
 def get_whisper_model():
     """Load the configured Whisper model once and reuse it afterwards."""
     return whisper.load_model(settings.WHISPER_MODEL)
+
+
+class QuizGenerationError(Exception):
+    """Raised when the AI response cannot be turned into a valid quiz."""
+
+
+def generate_quiz_data(transcript):
+    """Ask Gemini to create a quiz from the transcript and return validated data."""
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    response = client.models.generate_content(
+        model=settings.GEMINI_MODEL,
+        contents=build_quiz_prompt(transcript),
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=GeneratedQuiz,
+        ),
+    )
+    validate_quiz_data(response.parsed)
+    return response.parsed
+
+
+def build_quiz_prompt(transcript):
+    """Insert the transcript and quiz rules into the prompt template."""
+    return QUIZ_PROMPT.format(
+        question_count=QUESTION_COUNT,
+        option_count=OPTION_COUNT,
+        transcript=transcript,
+    )
+
+
+def validate_quiz_data(quiz_data):
+    """Ensure the generated quiz has the expected number of questions."""
+    if quiz_data is None:
+        raise QuizGenerationError("AI response could not be parsed.")
+    if len(quiz_data.questions) != QUESTION_COUNT:
+        raise QuizGenerationError("Quiz does not contain 10 questions.")
+    for question in quiz_data.questions:
+        validate_question(question)
+
+
+def validate_question(question):
+    """Ensure a question has four options and a valid answer."""
+    if len(question.question_options) != OPTION_COUNT:
+        raise QuizGenerationError("A question does not have 4 options.")
+    if question.answer not in question.question_options:
+        raise QuizGenerationError("An answer is not one of its options.")

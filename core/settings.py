@@ -50,6 +50,8 @@ SIMPLE_JWT = {
 # ------------------------------------------------------------------------------
 
 WHISPER_MODEL = env("WHISPER_MODEL", default="base")
+GEMINI_API_KEY = env("GEMINI_API_KEY")
+GEMINI_MODEL = env("GEMINI_MODEL", default="gemini-3.8-flash")
 
 # Application definition
 
