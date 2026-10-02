@@ -20,14 +20,14 @@ This repository contains the **backend only** (Django REST Framework). The front
 
 ## Tech Stack
 
-| Area | Technology |
-| --- | --- |
-| Framework | Django, Django REST Framework |
-| Authentication | djangorestframework-simplejwt (HTTP-only cookies) |
-| Audio download | yt-dlp + FFmpeg |
-| Transcription | OpenAI Whisper (runs locally) |
-| Quiz generation | Google Gemini Flash via `google-genai` |
-| Database | SQLite (development) |
+| Area            | Technology                                        |
+| --------------- | ------------------------------------------------- |
+| Framework       | Django, Django REST Framework                     |
+| Authentication  | djangorestframework-simplejwt (HTTP-only cookies) |
+| Audio download  | yt-dlp + FFmpeg                                   |
+| Transcription   | OpenAI Whisper (runs locally)                     |
+| Quiz generation | Google Gemini Flash via `google-genai`            |
+| Database        | SQLite (development)                              |
 
 ---
 
@@ -47,11 +47,11 @@ python3 --version
 
 FFmpeg is **required by Whisper and yt-dlp** to convert and read audio files. Without it, quiz generation will fail.
 
-| OS | Command |
-| --- | --- |
-| macOS (Homebrew) | `brew install ffmpeg` |
-| Windows (winget) | `winget install ffmpeg` |
-| Ubuntu / Debian | `sudo apt install ffmpeg` |
+| OS               | Command                   |
+| ---------------- | ------------------------- |
+| macOS (Homebrew) | `brew install ffmpeg`     |
+| Windows (winget) | `winget install ffmpeg`   |
+| Ubuntu / Debian  | `sudo apt install ffmpeg` |
 
 Verify the installation:
 
@@ -63,11 +63,11 @@ ffmpeg -version
 
 yt-dlp needs a JavaScript runtime to download videos from YouTube. Deno is the default runtime.
 
-| OS | Command |
-| --- | --- |
-| macOS (Homebrew) | `brew install deno` |
-| Windows (winget) | `winget install DenoLand.Deno` |
-| Linux | `curl -fsSL https://deno.land/install.sh \| sh` |
+| OS               | Command                                         |
+| ---------------- | ----------------------------------------------- |
+| macOS (Homebrew) | `brew install deno`                             |
+| Windows (winget) | `winget install DenoLand.Deno`                  |
+| Linux            | `curl -fsSL https://deno.land/install.sh \| sh` |
 
 Verify the installation:
 
@@ -86,7 +86,7 @@ Create a free API key in [Google AI Studio](https://aistudio.google.com/apikey).
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Infamous2k9/quizly-backend.git
+git clone https://github.com/<your-username>/quizly-backend.git
 cd quizly-backend
 ```
 
@@ -122,15 +122,16 @@ Copy the template and fill in your own values:
 cp .env.template .env
 ```
 
-| Variable | Description | Example |
-| --- | --- | --- |
-| `SECRET_KEY` | Django secret key | see below |
-| `DEBUG` | Debug mode (`True` for local development) | `True` |
-| `ALLOWED_HOSTS` | Comma-separated list of allowed hosts | `127.0.0.1,localhost` |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated list of frontend origins | `http://127.0.0.1:5500` |
-| `WHISPER_MODEL` | Whisper model size (`tiny`, `base`, `small`, `medium`, `turbo`) | `base` |
-| `GEMINI_API_KEY` | Your Gemini API key | `your_gemini_api_key` |
-| `GEMINI_MODEL` | Gemini model used for quiz generation | `gemini-3.7-flash` |
+| Variable                 | Description                                                                                              | Example                 |
+| ------------------------ | -------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `SECRET_KEY`             | Django secret key                                                                                        | see below               |
+| `DEBUG`                  | Debug mode (`True` for local development)                                                                | `True`                  |
+| `ALLOWED_HOSTS`          | Comma-separated list of allowed hosts                                                                    | `127.0.0.1,localhost`   |
+| `CORS_ALLOWED_ORIGINS`   | Comma-separated list of frontend origins                                                                 | `http://127.0.0.1:5500` |
+| `CORS_ALLOW_CREDENTIALS` | Allow the browser to send cookies with cross-origin requests (must be `True` for the cookie-based login) | `True`                  |
+| `WHISPER_MODEL`          | Whisper model size (`tiny`, `base`, `small`, `medium`, `turbo`)                                          | `base`                  |
+| `GEMINI_API_KEY`         | Your Gemini API key                                                                                      | `your_gemini_api_key`   |
+| `GEMINI_MODEL`           | Gemini model used for quiz generation                                                                    | `gemini-3.7-flash`      |
 
 Generate a new secret key with:
 
@@ -176,22 +177,22 @@ All endpoints are prefixed with `/api/`. Authentication is handled automatically
 
 ### Authentication
 
-| Method | Endpoint | Description | Auth |
-| --- | --- | --- | --- |
-| POST | `/api/register/` | Register a new user | No |
-| POST | `/api/login/` | Log in and set `access_token` and `refresh_token` cookies | No |
-| POST | `/api/logout/` | Log out, blacklist the refresh token and delete the cookies | Yes |
-| POST | `/api/token/refresh/` | Issue a new access token using the refresh token cookie | Refresh cookie |
+| Method | Endpoint              | Description                                                 | Auth           |
+| ------ | --------------------- | ----------------------------------------------------------- | -------------- |
+| POST   | `/api/register/`      | Register a new user                                         | No             |
+| POST   | `/api/login/`         | Log in and set `access_token` and `refresh_token` cookies   | No             |
+| POST   | `/api/logout/`        | Log out, blacklist the refresh token and delete the cookies | Yes            |
+| POST   | `/api/token/refresh/` | Issue a new access token using the refresh token cookie     | Refresh cookie |
 
 ### Quizzes
 
-| Method | Endpoint | Description | Auth |
-| --- | --- | --- | --- |
-| POST | `/api/quizzes/` | Create a quiz from a YouTube URL | Yes |
-| GET | `/api/quizzes/` | List all quizzes of the current user | Yes |
-| GET | `/api/quizzes/{id}/` | Retrieve a single quiz | Owner |
-| PATCH | `/api/quizzes/{id}/` | Update `title` and/or `description` | Owner |
-| DELETE | `/api/quizzes/{id}/` | Delete a quiz and all its questions | Owner |
+| Method | Endpoint             | Description                          | Auth  |
+| ------ | -------------------- | ------------------------------------ | ----- |
+| POST   | `/api/quizzes/`      | Create a quiz from a YouTube URL     | Yes   |
+| GET    | `/api/quizzes/`      | List all quizzes of the current user | Yes   |
+| GET    | `/api/quizzes/{id}/` | Retrieve a single quiz               | Owner |
+| PATCH  | `/api/quizzes/{id}/` | Update `title` and/or `description`  | Owner |
+| DELETE | `/api/quizzes/{id}/` | Delete a quiz and all its questions  | Owner |
 
 **Example request – create a quiz**
 
@@ -239,13 +240,13 @@ backend/
 
 ## Troubleshooting
 
-| Problem | Solution |
-| --- | --- |
-| `ffmpeg not found` | Install FFmpeg globally and restart your terminal. |
-| `Video could not be downloaded.` | Update yt-dlp with `pip install -U "yt-dlp[default]"` and make sure Deno is installed. Private, age-restricted or region-locked videos cannot be downloaded. |
-| `No supported JavaScript runtime could be found` | Install Deno (see prerequisites). |
-| `AI service is currently unavailable.` | The Gemini model may be overloaded (`503`) or no longer available (`404`). Set a different Flash model in `GEMINI_MODEL` and restart the server. |
-| `CERTIFICATE_VERIFY_FAILED` when Whisper downloads its model (macOS) | Run `Install Certificates.command` from your Python installation folder, e.g. `/Applications/Python 3.14/`. |
-| CORS errors in the browser | Check that the frontend origin exactly matches `CORS_ALLOWED_ORIGINS` (no trailing slash) and restart the server. |
+| Problem                                                              | Solution                                                                                                                                                     |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ffmpeg not found`                                                   | Install FFmpeg globally and restart your terminal.                                                                                                           |
+| `Video could not be downloaded.`                                     | Update yt-dlp with `pip install -U "yt-dlp[default]"` and make sure Deno is installed. Private, age-restricted or region-locked videos cannot be downloaded. |
+| `No supported JavaScript runtime could be found`                     | Install Deno (see prerequisites).                                                                                                                            |
+| `AI service is currently unavailable.`                               | The Gemini model may be overloaded (`503`) or no longer available (`404`). Set a different Flash model in `GEMINI_MODEL` and restart the server.             |
+| `CERTIFICATE_VERIFY_FAILED` when Whisper downloads its model (macOS) | Run `Install Certificates.command` from your Python installation folder, e.g. `/Applications/Python 3.14/`.                                                  |
+| CORS errors in the browser                                           | Check that the frontend origin exactly matches `CORS_ALLOWED_ORIGINS` (no trailing slash) and restart the server.                                            |
 
 > **First run:** Whisper downloads the selected model on the first quiz generation (e.g. about 140 MB for `base`) and caches it in `~/.cache/whisper`.
