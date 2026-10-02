@@ -16,6 +16,10 @@ from rest_framework.exceptions import APIException, ValidationError
 from .models import Question, Quiz
 from .schemas import GeneratedQuiz
 
+# ------------------------------------------------------------------------------
+# Constants
+# ------------------------------------------------------------------------------
+
 AUDIO_FILENAME = "audio"
 YOUTUBE_HOSTS = {
     "youtube.com",
@@ -27,6 +31,7 @@ SHORT_LINK_HOST = "youtu.be"
 VIDEO_ID_PATH_PREFIXES = ("/shorts/", "/embed/", "/live/", "/v/")
 VIDEO_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{11}$")
 CANONICAL_VIDEO_URL = "https://www.youtube.com/watch?v={}"
+
 QUESTION_COUNT = 10
 OPTION_COUNT = 4
 QUIZ_PROMPT = """
@@ -45,26 +50,56 @@ Transcript:
 """
 
 
-def download_audio(video_url, target_dir):
-    """Download the audio track of a YouTube video and return the mp3 path."""
-    try:
-        with yt_dlp.YoutubeDL(build_download_options(target_dir)) as ydl:
-            ydl.download([video_url])
-    except yt_dlp.utils.DownloadError:
-        raise ValidationError({"url": "Video could not be downloaded."})
-    return Path(target_dir) / f"{AUDIO_FILENAME}.mp3"
+# ------------------------------------------------------------------------------
+# Exceptions
+# ------------------------------------------------------------------------------
 
 
-def build_download_options(target_dir):
-    """Return yt-dlp options for extracting the audio as an mp3 file."""
-    return {
-        "format": "bestaudio/best",
-        "outtmpl": str(Path(target_dir) / f"{AUDIO_FILENAME}.%(ext)s"),
-        "noplaylist": True,
-        "quiet": True,
-        "no_warnings": True,
-        "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}],
-    }
+class QuizGenerationError(APIException):
+    """Raised when the AI response cannot be turned into a valid quiz."""
+
+    status_code = 500
+    default_detail = "Quiz could not be generated."
+    default_code = "quiz_generation_failed"
+
+
+# ------------------------------------------------------------------------------
+# Pipeline
+# ------------------------------------------------------------------------------
+
+
+def create_quiz_from_url(user, video_url):
+    """Run the full pipeline and store the generated quiz for the user."""
+    quiz_data = generate_quiz_from_video(video_url)
+    return save_quiz(user, video_url, quiz_data)
+
+
+def generate_quiz_from_video(video_url):
+    """Download, transcribe and turn a YouTube video into quiz data."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        audio_path = download_audio(video_url, temp_dir)
+        transcript = transcribe_audio(audio_path)
+    return generate_quiz_data(transcript)
+
+
+@transaction.atomic
+def save_quiz(user, video_url, quiz_data):
+    """Store the quiz and all its questions in a single transaction."""
+    quiz = Quiz.objects.create(
+        user=user,
+        title=quiz_data.title,
+        description=quiz_data.description,
+        video_url=video_url,
+    )
+    Question.objects.bulk_create(
+        [Question(quiz=quiz, **q.model_dump()) for q in quiz_data.questions]
+    )
+    return quiz
+
+
+# ------------------------------------------------------------------------------
+# YouTube URL normalization
+# ------------------------------------------------------------------------------
 
 
 def normalize_youtube_url(url):
@@ -97,6 +132,38 @@ def extract_id_from_youtube_path(parsed):
     return None
 
 
+# ------------------------------------------------------------------------------
+# Audio download (yt-dlp)
+# ------------------------------------------------------------------------------
+
+
+def download_audio(video_url, target_dir):
+    """Download the audio track of a YouTube video and return the mp3 path."""
+    try:
+        with yt_dlp.YoutubeDL(build_download_options(target_dir)) as ydl:
+            ydl.download([video_url])
+    except yt_dlp.utils.DownloadError:
+        raise ValidationError({"url": "Video could not be downloaded."})
+    return Path(target_dir) / f"{AUDIO_FILENAME}.mp3"
+
+
+def build_download_options(target_dir):
+    """Return yt-dlp options for extracting the audio as an mp3 file."""
+    return {
+        "format": "bestaudio/best",
+        "outtmpl": str(Path(target_dir) / f"{AUDIO_FILENAME}.%(ext)s"),
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+        "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}],
+    }
+
+
+# ------------------------------------------------------------------------------
+# Transcription (Whisper)
+# ------------------------------------------------------------------------------
+
+
 def transcribe_audio(audio_path):
     """Transcribe an audio file to plain text using a local Whisper model."""
     result = get_whisper_model().transcribe(str(audio_path), fp16=False)
@@ -109,12 +176,9 @@ def get_whisper_model():
     return whisper.load_model(settings.WHISPER_MODEL)
 
 
-class QuizGenerationError(APIException):
-    """Raised when the AI response cannot be turned into a valid quiz."""
-
-    status_code = 500
-    default_detail = "Quiz could not be generated."
-    default_code = "quiz_generation_failed"
+# ------------------------------------------------------------------------------
+# Quiz generation (Gemini)
+# ------------------------------------------------------------------------------
 
 
 def generate_quiz_data(transcript):
@@ -166,32 +230,3 @@ def validate_question(question):
         raise QuizGenerationError("A question does not have 4 options.")
     if question.answer not in question.question_options:
         raise QuizGenerationError("An answer is not one of its options.")
-
-
-def create_quiz_from_url(user, video_url):
-    """Run the full pipeline and store the generated quiz for the user."""
-    quiz_data = generate_quiz_from_video(video_url)
-    return save_quiz(user, video_url, quiz_data)
-
-
-def generate_quiz_from_video(video_url):
-    """Download, transcribe and turn a YouTube video into quiz data."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        audio_path = download_audio(video_url, temp_dir)
-        transcript = transcribe_audio(audio_path)
-    return generate_quiz_data(transcript)
-
-
-@transaction.atomic
-def save_quiz(user, video_url, quiz_data):
-    """Store the quiz and all its questions in a single transaction."""
-    quiz = Quiz.objects.create(
-        user=user,
-        title=quiz_data.title,
-        description=quiz_data.description,
-        video_url=video_url,
-    )
-    Question.objects.bulk_create(
-        [Question(quiz=quiz, **q.model_dump()) for q in quiz_data.questions]
-    )
-    return quiz
