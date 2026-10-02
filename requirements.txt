@@ -1,6 +1,7 @@
 annotated-types==0.8.0
 anyio==4.15.1
 asgiref==3.12.1
+brotli==1.2.0
 certifi==2026.7.22
 cffi==2.1.1
 charset-normalizer==3.5.2
@@ -24,6 +25,7 @@ llvmlite==0.50.0
 MarkupSafe==3.0.3
 more-itertools==11.1.0
 mpmath==1.3.0
+mutagen==1.48.1
 networkx==3.7
 numba==0.68.0
 numpy==2.5.3
@@ -31,6 +33,7 @@ openai-whisper==20250625
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
 pycparser==3.0
+pycryptodomex==3.23.0
 pydantic==2.13.5
 pydantic_core==2.46.5
 PyJWT==2.15.1
@@ -49,3 +52,4 @@ typing_extensions==4.16.0
 urllib3==2.8.0
 websockets==16.1.1
 yt-dlp==2026.8.19
+yt-dlp-ejs==0.8.0
