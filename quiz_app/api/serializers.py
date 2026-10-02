@@ -35,6 +35,7 @@ class QuizSerializer(serializers.ModelSerializer):
             "video_url",
             "questions",
         ]
+        read_only_fields = ["video_url"]
 
 
 class QuizCreateResponseSerializer(QuizSerializer):
