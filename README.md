@@ -86,7 +86,7 @@ Create a free API key in [Google AI Studio](https://aistudio.google.com/apikey).
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/<your-username>/quizly-backend.git
+git clone https://github.com/Infamous2k9/quizly-backend.git
 cd quizly-backend
 ```
 
